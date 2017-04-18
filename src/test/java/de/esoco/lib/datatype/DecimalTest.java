@@ -120,6 +120,7 @@ public class DecimalTest
 	/***************************************
 	 * Performance test
 	 */
+	@SuppressWarnings("boxing")
 	@Test
 	public void testPerformance()
 	{

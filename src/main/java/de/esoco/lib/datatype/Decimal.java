@@ -77,13 +77,7 @@ public class Decimal extends Number
 	{
 		this.nInteger  = nInteger;
 		this.nFraction = nFraction;
-
-		do
-		{
-			nScale++;
-			nFraction /= 10;
-		}
-		while (nFraction > 0);
+		this.nScale    = calcScale(nFraction);
 	}
 
 	//~ Static methods ---------------------------------------------------------
@@ -210,7 +204,7 @@ public class Decimal extends Number
 	public Decimal multiply(Decimal rOther)
 	{
 		return new Decimal(nInteger * rOther.nInteger,
-						   nFraction * rOther.nFraction);
+						   nFraction * rOther.nFraction * nScale);
 	}
 
 	/***************************************
@@ -244,5 +238,26 @@ public class Decimal extends Number
 	public String toString()
 	{
 		return nInteger + "." + nFraction;
+	}
+
+	/***************************************
+	 * Calculates the scale of a fraction.
+	 *
+	 * @param  nFraction The fraction value
+	 *
+	 * @return The calculated scale
+	 */
+	private int calcScale(long nFraction)
+	{
+		int nScale = 0;
+
+		do
+		{
+			nScale++;
+			nFraction /= 10;
+		}
+		while (nFraction > 0);
+
+		return nScale;
 	}
 }
