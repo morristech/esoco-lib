@@ -37,6 +37,7 @@ public class Decimal extends Number
 
 	private long nInteger;
 	private long nFraction = 0;
+	private int  nScale    = 0;
 
 	//~ Constructors -----------------------------------------------------------
 
@@ -62,6 +63,7 @@ public class Decimal extends Number
 		if (aParts.length == 2)
 		{
 			nFraction = Integer.parseInt(aParts[1]);
+			nScale    = aParts[1].length();
 		}
 	}
 
@@ -75,6 +77,13 @@ public class Decimal extends Number
 	{
 		this.nInteger  = nInteger;
 		this.nFraction = nFraction;
+
+		do
+		{
+			nScale++;
+			nFraction /= 10;
+		}
+		while (nFraction > 0);
 	}
 
 	//~ Static methods ---------------------------------------------------------
@@ -101,7 +110,11 @@ public class Decimal extends Number
 	 */
 	public static Decimal decimal(long nInteger)
 	{
-		return decimal(nInteger, 0);
+		Decimal aDecimal = decimal(nInteger, 0);
+
+		aDecimal.nScale = 0;
+
+		return aDecimal;
 	}
 
 	/***************************************
