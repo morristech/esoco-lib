@@ -30,7 +30,7 @@ import static java.lang.Math.max;
  *
  * @author eso
  */
-public class Decimal extends Number
+public class Decimal extends Number implements Comparable<Decimal>
 {
 	//~ Static fields/initializers ---------------------------------------------
 
@@ -59,7 +59,7 @@ public class Decimal extends Number
 	{
 		Objects.requireNonNull(sDecimal);
 
-		String[] aParts = sDecimal.split(".");
+		String[] aParts = sDecimal.split("\\.");
 
 		if (aParts.length == 0 || aParts.length > 2)
 		{
@@ -238,6 +238,34 @@ public class Decimal extends Number
 	}
 
 	/***************************************
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int compareTo(Decimal d)
+	{
+		if (nInteger != d.nInteger)
+		{
+			return nInteger < d.nInteger ? -1 : 1;
+		}
+		else
+		{
+			long f1 = nInteger > 0 ? nFraction : -nFraction;
+			long f2 = d.nInteger > 0 ? d.nFraction : -d.nFraction;
+
+			if (nScale > d.nScale)
+			{
+				f2 *= scaleFactor(nScale - d.nScale);
+			}
+			else if (nScale < d.nScale)
+			{
+				f1 *= scaleFactor(d.nScale - nScale);
+			}
+
+			return f1 == f2 ? 0 : f1 < f2 ? -1 : 1;
+		}
+	}
+
+	/***************************************
 	 * Divides this decimal value by another and returns a new decimal with the
 	 * resulting value.
 	 *
@@ -247,10 +275,17 @@ public class Decimal extends Number
 	 */
 	public Decimal divide(Decimal rOther)
 	{
-		return new Decimal(rOther.nInteger != 0 ? nInteger / rOther.nInteger
-												: nInteger,
-						   rOther.nFraction != 0 ? nFraction / rOther.nFraction
-												 : nFraction);
+		if (rOther.nInteger == 0 && rOther.nFraction == 0)
+		{
+			throw new ArithmeticException("Division by zero");
+		}
+
+		long nDivInt  =
+			rOther.nInteger != 0 ? nInteger / rOther.nInteger : nInteger;
+		long nDivFrac =
+			rOther.nFraction != 0 ? nFraction / rOther.nFraction : nFraction;
+
+		return new Decimal(nDivInt, nDivFrac, nScale);
 	}
 
 	/***************************************
@@ -260,6 +295,32 @@ public class Decimal extends Number
 	public double doubleValue()
 	{
 		return Double.parseDouble(toString());
+	}
+
+	/***************************************
+	 * {@inheritDoc}
+	 */
+	@Override
+	public boolean equals(Object rObj)
+	{
+		if (this != rObj)
+		{
+			if (rObj == null || getClass() != rObj.getClass())
+			{
+				return false;
+			}
+
+			Decimal rOther = (Decimal) rObj;
+
+			if (nInteger != rOther.nInteger ||
+				nFraction != rOther.nFraction ||
+				nScale != rOther.nScale)
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/***************************************
@@ -279,6 +340,21 @@ public class Decimal extends Number
 	public final long fraction()
 	{
 		return nFraction;
+	}
+
+	/***************************************
+	 * {@inheritDoc}
+	 */
+	@Override
+	public int hashCode()
+	{
+		final int nPrime    = 31;
+		int		  nHashCode = nPrime + (int) (nInteger ^ (nInteger >>> 32));
+
+		nHashCode = nPrime * nHashCode + (int) (nFraction ^ (nFraction >>> 32));
+		nHashCode = nPrime * nHashCode + nScale;
+
+		return nHashCode;
 	}
 
 	/***************************************

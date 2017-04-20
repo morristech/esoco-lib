@@ -27,6 +27,8 @@ import static de.esoco.lib.datatype.Decimal.decimal;
 import static de.esoco.lib.datatype.Decimal.scaleFactor;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 
 /********************************************************************
@@ -67,6 +69,29 @@ public class DecimalTest
 	 * Test of decimal method
 	 */
 	@Test
+	public void testCompareTo()
+	{
+		assertTrue(decimal(42).compareTo(decimal(41)) > 0);
+		assertTrue(decimal(42).compareTo(decimal(43)) < 0);
+		assertTrue(decimal(42).compareTo(decimal(42)) == 0);
+		assertTrue(decimal(42).compareTo(decimal(41, 42)) > 0);
+		assertTrue(decimal(42).compareTo(decimal(43, 42)) < 0);
+		assertTrue(decimal(42).compareTo(decimal(42, 000)) == 0);
+		assertTrue(decimal(1, 1).compareTo(decimal(1, 0)) > 0);
+		assertTrue(decimal(1, 1).compareTo(decimal(1, 2)) < 0);
+		assertTrue(decimal(1, 1).compareTo(decimal(1, 1)) == 0);
+		assertTrue(decimal(1, 234).compareTo(decimal(1, 233)) > 0);
+		assertTrue(decimal(1, 234).compareTo(decimal(1, 235)) < 0);
+		assertTrue(decimal(1, 234).compareTo(decimal(1, 234)) == 0);
+		assertTrue(decimal(-1, 234).compareTo(decimal(-1, 233)) < 0);
+		assertTrue(decimal(-1, 234).compareTo(decimal(-1, 235)) > 0);
+		assertTrue(decimal(-1, 234).compareTo(decimal(-1, 234)) == 0);
+	}
+
+	/***************************************
+	 * Test of decimal method
+	 */
+	@Test
 	public void testDecimalLong()
 	{
 	}
@@ -93,6 +118,7 @@ public class DecimalTest
 	@Test
 	public void testDivide()
 	{
+		assertEquals(decimal(2), decimal(10).divide(decimal(5)));
 	}
 
 	/***************************************
@@ -101,6 +127,19 @@ public class DecimalTest
 	@Test
 	public void testDoubleValue()
 	{
+	}
+
+	/***************************************
+	 * Test of decimal method
+	 */
+	@Test
+	public void testEquals()
+	{
+		assertTrue(decimal(42).equals(decimal(42)));
+		assertFalse(decimal(42).equals(decimal(43)));
+		assertTrue(decimal(1, 2345).equals(decimal("1.2345")));
+		assertTrue(decimal("-1.2345").equals(decimal("-1.2345")));
+		assertFalse(decimal(-1, 234).equals(decimal(1, 234)));
 	}
 
 	/***************************************
@@ -133,20 +172,16 @@ public class DecimalTest
 	@Test
 	public void testMultiply()
 	{
-		long t = System.currentTimeMillis();
-
 		testRange(-1000,
 				  1000,
-				  59,
+				  131,
 				  3,
 				  d1 ->
 				  testRange(-100,
 							100,
-							71,
+							139,
 							3,
 							d2 -> assertMultiplication(d1, d2)));
-		t = System.currentTimeMillis() - t;
-		System.out.printf("MULT: %d.%3d\n", t / 1000, t % 1000);
 	}
 
 	/***************************************
