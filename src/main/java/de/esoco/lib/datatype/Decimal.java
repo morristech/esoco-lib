@@ -20,6 +20,9 @@ import java.math.BigDecimal;
 
 import java.util.Objects;
 
+import static java.lang.Math.abs;
+import static java.lang.Math.max;
+
 
 /********************************************************************
  * A decimal implementation with limited precision but more effective processing
@@ -33,11 +36,17 @@ public class Decimal extends Number
 
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * The maximum scale of a decimal (= the maximum decimal digits that fit in
+	 * a signed long (2^63))
+	 */
+	public static final int MAX_SCALE = calcScale(Long.MAX_VALUE / 10);
+
 	//~ Instance fields --------------------------------------------------------
 
-	private long nInteger;
-	private long nFraction = 0;
-	private int  nScale    = 0;
+	private final long nInteger;
+	private final long nFraction;
+	private final int  nScale;
 
 	//~ Constructors -----------------------------------------------------------
 
@@ -65,22 +74,71 @@ public class Decimal extends Number
 			nFraction = Integer.parseInt(aParts[1]);
 			nScale    = aParts[1].length();
 		}
+		else
+		{
+			nFraction = 0;
+			nScale    = 0;
+		}
 	}
 
 	/***************************************
-	 * Creates a new instance.
+	 * Creates a new instance from integer and fraction parts. If the value is
+	 * negative the sing must only be set on the integer part!
 	 *
-	 * @param nInteger  The integer part of the decimal value
-	 * @param nFraction The fraction part of the decimal value
+	 * @param nInteger  The integer part of the decimal value, including sign
+	 * @param nFraction The fraction part of the decimal value (>= 0)
 	 */
 	public Decimal(long nInteger, long nFraction)
 	{
+		this(nInteger, nFraction, calcScale(nFraction));
+	}
+
+	/***************************************
+	 * Internal constructor to create a new instance with an explicit scale.
+	 *
+	 * @param nInteger  The integer part of the decimal value
+	 * @param nFraction The fraction part of the decimal value (>=0)
+	 * @param nScale    The scale (>=0)
+	 */
+	private Decimal(long nInteger, long nFraction, int nScale)
+	{
 		this.nInteger  = nInteger;
-		this.nFraction = nFraction;
-		this.nScale    = calcScale(nFraction);
+		this.nFraction = abs(nFraction);
+		this.nScale    = abs(nScale);
 	}
 
 	//~ Static methods ---------------------------------------------------------
+
+	/***************************************
+	 * Calculates the scale of a fraction.
+	 *
+	 * @param  n The fraction value
+	 *
+	 * @return The calculated scale
+	 */
+	public static int calcScale(long n)
+	{
+		n = abs(n);
+
+		return n < 100_000
+			   ? (n < 100 ? n < 10 ? 1 : 2
+						  : n < 1_000 ? 3 : n < 10_000 ? 4 : 5)
+			   : (n < 10_000_000
+				  ? n < 1_000_000 ? 6 : 7
+				  : (n < 100_000_000
+					 ? 8
+					 : (n < 1_000_000_000
+						? 9
+						: (n < 100_000_000_000_000L
+						   ? (n < 100_000_000_000L
+							  ? n < 10_000_000_000L ? 10 : 11
+							  : n < 1_000_000_000_000L
+							  ? 12 : n < 10_000_000_000_000L ? 13 : 14)
+						   : (n < 10_000_000_000_000_000L
+							  ? n < 1_000_000_000_000_000L ? 15 : 16
+							  : n < 100_000_000_000_000_000L
+							  ? 17 : n < 1_000_000_000_000_000_000L ? 18 : 19)))));
+	}
 
 	/***************************************
 	 * Factory method to create a new decimal from a string.
@@ -104,11 +162,7 @@ public class Decimal extends Number
 	 */
 	public static Decimal decimal(long nInteger)
 	{
-		Decimal aDecimal = decimal(nInteger, 0);
-
-		aDecimal.nScale = 0;
-
-		return aDecimal;
+		return new Decimal(nInteger, 0, 0);
 	}
 
 	/***************************************
@@ -116,13 +170,55 @@ public class Decimal extends Number
 	 * parts.
 	 *
 	 * @param  nInteger  The integer part of the decimal value
-	 * @param  nFraction The fraction part of the decimal value
+	 * @param  nFraction The fraction part of the decimal value (>= 0)
 	 *
 	 * @return The new decimal
 	 */
 	public static Decimal decimal(long nInteger, long nFraction)
 	{
 		return new Decimal(nInteger, nFraction);
+	}
+
+	/***************************************
+	 * Returns the decimal factor for a certain scale. The resulting valie is
+	 * effectively 10^nScale.
+	 *
+	 * @param  nScale The scale to return the factor for (must be >= 0)
+	 *
+	 * @return The decimal scale factor
+	 */
+	static long scaleFactor(int nScale)
+	{
+		long nFactor = 1;
+
+		nScale = abs(nScale);
+
+		if (nScale > 0)
+		{
+			if (nScale < 7)
+			{
+				nFactor =
+					nScale == 1
+					? 10
+					: nScale == 2
+					  ? 100
+					  : nScale == 3
+					  ? 1000
+					  : nScale == 4 ? 10_000
+									: nScale == 5 ? 100_000 : 1_000_000;
+			}
+			else
+			{
+				nFactor = 10_000_000;
+
+				while (nScale-- > 7)
+				{
+					nFactor *= 10;
+				}
+			}
+		}
+
+		return nFactor;
 	}
 
 	//~ Methods ----------------------------------------------------------------
@@ -176,6 +272,26 @@ public class Decimal extends Number
 	}
 
 	/***************************************
+	 * Returns the fraction part of this decimal.
+	 *
+	 * @return The fraction part
+	 */
+	public final long fraction()
+	{
+		return nFraction;
+	}
+
+	/***************************************
+	 * Returns the integer part of this decimal.
+	 *
+	 * @return The integer part
+	 */
+	public final long integer()
+	{
+		return nInteger;
+	}
+
+	/***************************************
 	 * {@inheritDoc}
 	 */
 	@Override
@@ -203,8 +319,76 @@ public class Decimal extends Number
 	 */
 	public Decimal multiply(Decimal rOther)
 	{
-		return new Decimal(nInteger * rOther.nInteger,
-						   nFraction * rOther.nFraction * nScale);
+		long nMultInt     = nInteger * rOther.nInteger;
+		long nMultFrac    = nFraction * rOther.nFraction;
+		int  nMultScale   = nScale + rOther.nScale;
+		int  nMaxScale    = max(nScale, rOther.nScale);
+		long nScaleFactor = scaleFactor(nMaxScale);
+
+		long nCrossMult;
+		long cm1 = abs(nInteger * rOther.nFraction);
+		long cm2 = abs(nFraction * rOther.nInteger);
+
+		if (nScale == rOther.nScale)
+		{
+			nCrossMult = cm1 + cm2;
+		}
+		else if (nScale > rOther.nScale)
+		{
+			nCrossMult = cm1 * scaleFactor(nScale - rOther.nScale) + cm2;
+		}
+		else
+		{
+			nCrossMult = cm1 + cm2 * scaleFactor(rOther.nScale - nScale);
+		}
+
+		long nCrossFrac = nCrossMult % nScaleFactor;
+
+		if (nCrossFrac > 0)
+		{
+			if (nMultScale == nMaxScale)
+			{
+				nMultFrac += nCrossFrac;
+			}
+			else if (nMultScale > nMaxScale)
+			{
+				nMultFrac += nCrossFrac * scaleFactor(nMultScale - nMaxScale);
+			}
+		}
+
+		long nMultScaleFactor = scaleFactor(nMultScale);
+
+		if (nMultInt > 0)
+		{
+			nMultInt += nMultFrac / nMultScaleFactor;
+			nMultInt += nCrossMult / nScaleFactor;
+		}
+		else
+		{
+			nMultInt -= nMultFrac / nMultScaleFactor;
+			nMultInt -= nCrossMult / nScaleFactor;
+		}
+
+		nMultFrac %= nMultScaleFactor;
+
+		while (nMultScale > nScale && nMultFrac % 10 == 0)
+		{
+			// reduce scale by removing trailing zeros in fraction
+			nMultScale--;
+			nMultFrac /= 10;
+		}
+
+		return new Decimal(nMultInt, nMultFrac, nMultScale);
+	}
+
+	/***************************************
+	 * Returns the scale of this decimal.
+	 *
+	 * @return The scale
+	 */
+	public final int scale()
+	{
+		return nScale;
 	}
 
 	/***************************************
@@ -235,29 +419,11 @@ public class Decimal extends Number
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
+	@SuppressWarnings("boxing")
 	public String toString()
 	{
-		return nInteger + "." + nFraction;
-	}
-
-	/***************************************
-	 * Calculates the scale of a fraction.
-	 *
-	 * @param  nFraction The fraction value
-	 *
-	 * @return The calculated scale
-	 */
-	private int calcScale(long nFraction)
-	{
-		int nScale = 0;
-
-		do
-		{
-			nScale++;
-			nFraction /= 10;
-		}
-		while (nFraction > 0);
-
-		return nScale;
+		return nScale != 0
+			   ? String.format("%d.%0" + nScale + "d", nInteger, nFraction)
+			   : Long.toString(nInteger);
 	}
 }

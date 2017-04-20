@@ -17,10 +17,14 @@
 package de.esoco.lib.datatype;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+
+import java.util.function.Consumer;
 
 import org.junit.Test;
 
 import static de.esoco.lib.datatype.Decimal.decimal;
+import static de.esoco.lib.datatype.Decimal.scaleFactor;
 
 import static org.junit.Assert.assertEquals;
 
@@ -40,6 +44,23 @@ public class DecimalTest
 	@Test
 	public void testAdd()
 	{
+	}
+
+	/***************************************
+	 * Test of {@link Decimal#calcScale(long)}
+	 */
+	@Test
+	public void testCalcScale()
+	{
+		long nTest  = Long.MAX_VALUE;
+		int  nScale = 18;
+
+		while ((nTest /= 10) > 0)
+		{
+			assertEquals(nScale--, Decimal.calcScale(nTest));
+		}
+
+		assertEquals(18, Decimal.MAX_SCALE);
 	}
 
 	/***************************************
@@ -112,9 +133,20 @@ public class DecimalTest
 	@Test
 	public void testMultiply()
 	{
-//		Decimal _2_5 = decimal(2, 5);
-//
-//		assertEquals("6.25", _2_5.multiply(_2_5).toString());
+		long t = System.currentTimeMillis();
+
+		testRange(-1000,
+				  1000,
+				  59,
+				  3,
+				  d1 ->
+				  testRange(-100,
+							100,
+							71,
+							3,
+							d2 -> assertMultiplication(d1, d2)));
+		t = System.currentTimeMillis() - t;
+		System.out.printf("MULT: %d.%3d\n", t / 1000, t % 1000);
 	}
 
 	/***************************************
@@ -124,10 +156,12 @@ public class DecimalTest
 	@Test
 	public void testPerformance()
 	{
-		long	   t    = System.currentTimeMillis();
+		long t		    = System.currentTimeMillis();
+		int  nLoopCount = 1_000_000;
+
 		BigDecimal aSum = BigDecimal.ZERO.setScale(16);
 
-		for (int i = 0; i < 100_000_000; i++)
+		for (int i = 0; i < nLoopCount; i++)
 		{
 			BigDecimal val =
 				new BigDecimal(i).setScale(6).multiply(new BigDecimal(i))
@@ -144,12 +178,15 @@ public class DecimalTest
 		}
 
 		t = System.currentTimeMillis() - t;
-		System.out.printf("BIGD: %s - %d.%03d\n", aSum, t / 1000, t % 1000);
+		System.out.printf("BIGDECIMAL: %s - %d.%03d\n",
+						  aSum,
+						  t / 1000,
+						  t % 1000);
 		t = System.currentTimeMillis();
 
 		Decimal nSum = decimal(0, 0);
 
-		for (int i = 0; i < 100_000_000; i++)
+		for (int i = 0; i < nLoopCount; i++)
 		{
 			Decimal val = decimal(i).multiply(decimal(i)).divide(decimal(3, 3));
 
@@ -164,7 +201,28 @@ public class DecimalTest
 		}
 
 		t = System.currentTimeMillis() - t;
-		System.out.printf("LONG: %s - %d.%03d\n", nSum, t / 1000, t % 1000);
+		System.out.printf("DECIMAL   : %s - %d.%03d\n",
+						  nSum,
+						  t / 1000,
+						  t % 1000);
+	}
+
+	/***************************************
+	 * Test of {@link Decimal#scaleFactor(int)}
+	 */
+	@Test
+	public void testScaleFactor()
+	{
+		assertEquals(1, Decimal.scaleFactor(0));
+		assertEquals(10, Decimal.scaleFactor(1));
+		assertEquals(100, Decimal.scaleFactor(2));
+		assertEquals(1000, Decimal.scaleFactor(3));
+		assertEquals(10000, Decimal.scaleFactor(4));
+		assertEquals(100000, Decimal.scaleFactor(5));
+		assertEquals(1000000, Decimal.scaleFactor(6));
+		assertEquals(10000000, Decimal.scaleFactor(7));
+		assertEquals(100000000, Decimal.scaleFactor(8));
+		assertEquals(100000000, Decimal.scaleFactor(-8));
 	}
 
 	/***************************************
@@ -185,5 +243,61 @@ public class DecimalTest
 	{
 		assertEquals("1.1", decimal(1, 1).toString());
 		assertEquals("3.141592", decimal(3, 141592).toString());
+	}
+
+	/***************************************
+	 * Asserts the correctness of a decimal multiplication.
+	 *
+	 * @param d1 The first operand
+	 * @param d2 The second operand
+	 */
+	private void assertMultiplication(Decimal d1, Decimal d2)
+	{
+		BigDecimal aCompareValue =
+			new BigDecimal(d1.toString()).multiply(new BigDecimal(d2.toString()));
+		Decimal    aDecimalValue = d1.multiply(d2);
+
+		aCompareValue =
+			aCompareValue.setScale(aDecimalValue.scale(), RoundingMode.CEILING);
+
+		try
+		{
+			assertEquals(aCompareValue.toString(), aDecimalValue.toString());
+		}
+		catch (AssertionError e)
+		{
+			System.out.printf("BD: %s != %s (%s * %s)\n",
+							  aCompareValue,
+							  aDecimalValue,
+							  d1,
+							  d2);
+			throw e;
+		}
+	}
+
+	/***************************************
+	 * Tests a range of decimal numbers
+	 *
+	 * @param nStart The starting value
+	 * @param nEnd   The end value
+	 * @param nStep  The steps to iterate the range with (recommended to be a
+	 *               prime to get a good distribution)
+	 * @param nScale The scale of the fraction to test with
+	 * @param fTest  The function to invoke with the test values
+	 */
+	private void testRange(int				 nStart,
+						   int				 nEnd,
+						   int				 nStep,
+						   int				 nScale,
+						   Consumer<Decimal> fTest)
+	{
+		for (long i = nStart; i < nEnd; i += nStep)
+		{
+			for (long f = -scaleFactor(nScale); f < scaleFactor(nScale);
+				 f += nStep)
+			{
+				fTest.accept(decimal(i, f));
+			}
+		}
 	}
 }
